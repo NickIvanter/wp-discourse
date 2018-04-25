@@ -62,13 +62,16 @@ class WordPressEmailVerification {
 		$this->verification_signature_key_name = $verification_signature_key_name;
 		$this->site_prefix                     = $site_prefix;
 
-		add_action( 'user_register', array( $this, 'flag_email' ) );
-		add_action( 'resetpass_form', array( $this, 'mail_key_field' ) );
-		add_action( 'login_form', array( $this, 'mail_key_field' ) );
-		add_action( 'after_password_reset', array( $this, 'verify_email_after_password_reset' ) );
-		add_action( 'wp_login', array( $this, 'verify_email_after_login' ), 10, 2 );
-		add_action( 'login_message', array( $this, 'email_not_verified_messages' ) );
-		add_action( 'profile_update', array( $this, 'user_email_changed' ), 10, 2 );
+		// Disable this feature
+		/*
+		 * add_action( 'user_register', array( $this, 'flag_email' ) );
+		 * add_action( 'resetpass_form', array( $this, 'mail_key_field' ) );
+		 * add_action( 'login_form', array( $this, 'mail_key_field' ) );
+		 * add_action( 'after_password_reset', array( $this, 'verify_email_after_password_reset' ) );
+		 * add_action( 'wp_login', array( $this, 'verify_email_after_login' ), 10, 2 );
+		 * add_action( 'login_message', array( $this, 'email_not_verified_messages' ) );
+		 * add_action( 'profile_update', array( $this, 'user_email_changed' ), 10, 2 );
+		 */
 	}
 
 	/**
@@ -463,4 +466,3 @@ class WordPressEmailVerification {
 		exit;
 	}
 }
-
