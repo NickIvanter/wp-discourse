@@ -117,3 +117,7 @@ span.badge-category-bg {
 	margin-right: 5px;
 	margin-left: 5px;
 }
+
+.wpdc-poll-link {
+	display: block;
+}

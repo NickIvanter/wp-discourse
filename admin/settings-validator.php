@@ -2,7 +2,7 @@
 /**
  * Validation methods for the settings page.
  *
- * @link https://github.com/discourse/wp-discourse/blob/master/lib/settings-validator.php
+ * @link    https://github.com/discourse/wp-discourse/blob/master/lib/settings-validator.php
  * @package WPDiscourse
  */
 
@@ -16,13 +16,14 @@ use WPDiscourse\Shared\PluginUtilities;
  * @package WPDiscourse\Validator
  */
 class SettingsValidator {
+
 	use PluginUtilities;
 
 	/**
 	 * Indicates whether or not the "discourse_sso_common['sso-secret']" option has been set.
 	 *
 	 * @access protected
-	 * @var bool|void
+	 * @var    bool|void
 	 */
 	protected $sso_secret_set;
 
@@ -30,7 +31,7 @@ class SettingsValidator {
 	 * Indicates whether or not the "discourse_sso_provider['enable-sso']" option is enabled.
 	 *
 	 * @access protected
-	 * @var bool|void
+	 * @var    bool|void
 	 */
 	protected $sso_provider_enabled;
 
@@ -38,7 +39,7 @@ class SettingsValidator {
 	 * Indicates whether or not the "discourse_sso_client['sso-client-enabled']" option is enabled.
 	 *
 	 * @access protected
-	 * @var bool|void
+	 * @var    bool|void
 	 */
 	protected $sso_client_enabled;
 
@@ -46,7 +47,7 @@ class SettingsValidator {
 	 * Indicates whether or not 'use_discourse_comments' is enabled.
 	 *
 	 * @access protected
-	 * @var bool
+	 * @var    bool
 	 */
 	protected $use_discourse_comments = false;
 
@@ -54,7 +55,7 @@ class SettingsValidator {
 	 * Indicates whether or not 'use_discourse_webhook' is enabled.
 	 *
 	 * @access protected
-	 * @var bool
+	 * @var    bool
 	 */
 	protected $use_discourse_webhook;
 
@@ -62,7 +63,7 @@ class SettingsValidator {
 	 * Indicates whether or not 'use_discourse_user_webhook' is enabled.
 	 *
 	 * @access protected
-	 * @var bool
+	 * @var    bool
 	 */
 	protected $use_discourse_user_webhook;
 
@@ -70,7 +71,7 @@ class SettingsValidator {
 	 * Gives access to the plugin options.
 	 *
 	 * @access protected
-	 * @var array|void
+	 * @var    array|void
 	 */
 	protected $options;
 
@@ -89,6 +90,8 @@ class SettingsValidator {
 
 		add_filter( 'wpdc_validate_publish_category', array( $this, 'validate_publish_category' ) );
 		add_filter( 'wpdc_validate_publish_category_update', array( $this, 'validate_checkbox' ) );
+		add_filter( 'wpdc_validate_allow_tags', array( $this, 'validate_checkbox' ) );
+		add_filter( 'wpdc_validate_max_tags', array( $this, 'validate_max_tags' ) );
 		add_filter( 'wpdc_validate_full_post_content', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_auto_publish', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_force_publish', array( $this, 'validate_checkbox' ) );
@@ -99,11 +102,14 @@ class SettingsValidator {
 		add_filter( 'wpdc_validate_publish_failure_email', array( $this, 'validate_email' ) );
 		add_filter( 'wpdc_validate_hide_discourse_name_field', array( $this, 'validate_checkbox' ) );
 
-		add_filter( 'wpdc_validate_use_discourse_comments', array( $this, 'validate_use_discourse_comments' ) );
-		add_filter( 'wpdc_validate_add_join_link', array( $this, 'validate_add_join_link' ) );
+		add_filter( 'wpdc_validate_enable_discourse_comments', array( $this, 'validate_checkbox' ) );
+		add_filter( 'wpdc_validate_comment_type', array( $this, 'validate_radio_string_value' ) );
+		add_filter( 'wpdc_validate_cache_html', array( $this, 'validate_checkbox' ) );
+		add_filter( 'wpdc_validate_clear_cached_comment_html', array( $this, 'validate_clear_comments_html' ) );
 		add_filter( 'wpdc_validate_ajax_load', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_load_comment_css', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_discourse_new_tab', array( $this, 'validate_checkbox' ) );
+		add_filter( 'wpdc_validate_hide_wordpress_comments', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_show_existing_comments', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_existing_comments_heading', array( $this, 'validate_existing_comments_heading' ) );
 		add_filter( 'wpdc_validate_max_comments', array( $this, 'validate_max_comments' ) );
@@ -142,6 +148,7 @@ class SettingsValidator {
 
 		add_filter( 'wpdc_validate_sso_client_enabled', array( $this, 'validate_sso_client_enabled' ) );
 		add_filter( 'wpdc_validate_sso_client_login_form_change', array( $this, 'validate_checkbox' ) );
+		add_filter( 'wpdc_validate_sso_client_login_form_redirect', array( $this, 'validate_sso_client_login_form_redirect' ) );
 		add_filter( 'wpdc_validate_sso_client_sync_by_email', array( $this, 'validate_checkbox' ) );
 		add_filter( 'wpdc_validate_sso_client_sync_logout', array( $this, 'validate_checkbox' ) );
 
@@ -318,6 +325,21 @@ class SettingsValidator {
 	}
 
 	/**
+	 * Validates the 'clear_cached_comment_html input.
+	 *
+	 * @param string $input The input to be validated.
+	 *
+	 * @return int
+	 */
+	public function validate_clear_comments_html( $input ) {
+		if ( 1 === intval( $input ) ) {
+			$this->clear_cached_html();
+		}
+
+		return 0;
+	}
+
+	/**
 	 * Validates the 'existing_comments_heading' input.
 	 *
 	 * @param string $input The input to be validated.
@@ -420,6 +442,17 @@ class SettingsValidator {
 	}
 
 	/**
+	 * Validates the 'max_tags' input.
+	 *
+	 * @param int $input The input to be validated.
+	 *
+	 * @return mixed
+	 */
+	public function validate_max_tags( $input ) {
+		return $this->validate_int( $input );
+	}
+
+	/**
 	 * Validates use_discourse_webhook.
 	 *
 	 * @param string $input The input to be validated.
@@ -507,6 +540,11 @@ class SettingsValidator {
 			return 0;
 		}
 
+		// When the SSO Provider option is updated, clear the comment cache to update links to Discourse.
+		if ( ! empty( $this->options['cache-html'] ) ) {
+			$this->clear_cached_html();
+		}
+
 		return $new_value;
 	}
 
@@ -543,6 +581,36 @@ class SettingsValidator {
 		}
 
 		return $this->sanitize_checkbox( $input );
+	}
+
+	/**
+	 * Validates the sso_client_login_form_redirect redirect text input.
+	 *
+	 * @param string $input The input to be validated.
+	 *
+	 * @return string
+	 */
+	public function validate_sso_client_login_form_redirect( $input ) {
+		if ( empty( $input ) ) {
+
+			return '';
+		}
+		$regex = '/^(http:|https:)/';
+
+		// Make sure the url starts with a valid protocol.
+		if ( ! preg_match( $regex, $input ) ) {
+			add_settings_error( 'discourse', 'sso_client_login_redirect', __( 'The redirect URL needs to be set to a valid URL that begins with either \'http:\' or \'https:\'.', 'wp-discourse' ) );
+
+			$url = '';
+		} else {
+			$url = untrailingslashit( esc_url_raw( $input ) );
+
+			if ( ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+				add_settings_error( 'discourse', 'sso_client_login_redirect', __( 'The redirect URL you provided is not a valid URL.', 'wp-discourse' ) );
+			}
+		}
+
+		return $url;
 	}
 
 	/**
@@ -643,6 +711,17 @@ class SettingsValidator {
 	}
 
 	/**
+	 * Validate a radio input that returns a string.
+	 *
+	 * @param string $input The input to be validated.
+	 *
+	 * @return string
+	 */
+	public function validate_radio_string_value( $input ) {
+		return $this->validate_text_input( $input );
+	}
+
+	/**
 	 * Validate a text input.
 	 *
 	 * @param string $input The input to be validated.
@@ -725,16 +804,16 @@ class SettingsValidator {
 	/**
 	 * A helper function to validate and sanitize integers.
 	 *
-	 * @param int    $input The input to be validated.
-	 * @param string $option_id The option being validated.
-	 * @param null   $min The minimum allowed value.
-	 * @param null   $max The maximum allowed value.
+	 * @param int    $input         The input to be validated.
+	 * @param string $option_id     The option being validated.
+	 * @param null   $min           The minimum allowed value.
+	 * @param null   $max           The maximum allowed value.
 	 * @param string $error_message The error message to return.
-	 * @param bool   $add_error Whether or not to add a setting error.
+	 * @param bool   $add_error     Whether or not to add a setting error.
 	 *
 	 * @return mixed
 	 */
-	protected function validate_int( $input, $option_id, $min = null, $max = null, $error_message = '', $add_error = false ) {
+	protected function validate_int( $input, $option_id = null, $min = null, $max = null, $error_message = '', $add_error = false ) {
 		$options = array();
 
 		if ( isset( $min ) ) {
@@ -760,6 +839,18 @@ class SettingsValidator {
 		} else {
 			// Valid input.
 			return $input;
+		}
+	}
+
+	/**
+	 * Clears all cached comment HTML.
+	 */
+	protected function clear_cached_html() {
+		$transient_keys = get_option( 'wpdc_cached_html_keys' );
+		if ( ! empty( $transient_keys ) ) {
+			foreach ( $transient_keys as $transient_key ) {
+				delete_transient( $transient_key );
+			}
 		}
 	}
 }

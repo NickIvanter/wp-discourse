@@ -46,6 +46,8 @@ class Discourse {
 		'publish-category'          => '',
 		'publish-category-update'   => 0,
 		'full-post-content'         => 0,
+		'allow-tags'                => 0,
+		'max-tags'                  => 5,
 		'custom-excerpt-length'     => 55,
 		'add-featured-link'         => 0,
 		'auto-publish'              => 0,
@@ -64,11 +66,14 @@ class Discourse {
 	 * @var array
 	 */
 	protected $discourse_comment = array(
-		'use-discourse-comments'    => 0,
-		'add-join-link'             => 0,
+		'enable-discourse-comments' => 0,
+		'comment-type'              => 'display-comments',
 		'ajax-load'                 => 0,
+		'cache-html'                => 0,
+		'clear-cached-comment-html' => 0,
 		'discourse-new-tab'         => 0,
 		'comment-sync-period'       => 10,
+		'hide-wordpress-comments'   => 0,
 		'show-existing-comments'    => 0,
 		'existing-comments-heading' => '',
 		'max-comments'              => 5,
@@ -152,10 +157,11 @@ class Discourse {
 	 * @var array
 	 */
 	protected $discourse_sso_client = array(
-		'sso-client-enabled'           => 0,
-		'sso-client-login-form-change' => 0,
-		'sso-client-sync-by-email'     => 0,
-		'sso-client-sync-logout'       => 0,
+		'sso-client-enabled'             => 0,
+		'sso-client-login-form-change'   => 0,
+		'sso-client-login-form-redirect' => '',
+		'sso-client-sync-by-email'       => 0,
+		'sso-client-sync-logout'         => 0,
 	);
 
 	/**
@@ -207,6 +213,16 @@ class Discourse {
 				add_option( $group_name, $this->$group_name );
 			}
 		}
+
+		// Transfer 'use-discourse-comments' and 'add-join-link' options. Plugin version 1.7.7.
+		$commenting_options = get_option( 'discourse_comment' );
+		if ( ! empty( $commenting_options['use-discourse-comments'] ) || ! empty( $commenting_options['add-join-link'] ) ) {
+			$commenting_options['enable-discourse-comments'] = 1;
+			$commenting_options['comment-type']              = ! empty( $this->options['use-discourse-comments'] ) ? 'display-comments' : 'display-comments-link';
+		}
+		unset( $commenting_options['use-discourse-comments'] );
+		unset( $commenting_options['add-join-link'] );
+		update_option( 'discourse_comment', $commenting_options );
 
 		// Create a backup for the discourse_configurable_text option.
 		update_option( 'discourse_configurable_text_backup', $this->discourse_configurable_text );

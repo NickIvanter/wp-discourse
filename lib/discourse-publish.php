@@ -73,8 +73,10 @@ class DiscoursePublish {
 		$already_published      = get_post_meta( $post_id, 'discourse_post_id', true );
 		$update_discourse_topic = get_post_meta( $post_id, 'update_discourse_topic', true );
 		$title                  = $this->sanitize_title( $post->post_title );
+		$title                  = apply_filters( 'wpdc_publish_format_title', $title );
 
-		if ( 'publish' === get_post_status( $post_id ) ) {
+		$publish_private = apply_filters( 'wpdc_publish_private_post', false, $post_id );
+		if ( 'publish' === get_post_status( $post_id ) || $publish_private ) {
 			if ( $force_publish || ( ! $already_published && $publish_to_discourse ) || $update_discourse_topic ) {
 				$this->sync_to_discourse( $post_id, $title, $post->post_content );
 			}
@@ -98,6 +100,7 @@ class DiscoursePublish {
 		$publish_to_discourse = false;
 		$publish_to_discourse = apply_filters( 'wp_discourse_before_xmlrpc_publish', $publish_to_discourse, $post );
 		$title                = $this->sanitize_title( $post->post_title );
+		$title                = apply_filters( 'wpdc_publish_format_title', $title );
 
 		if ( $publish_to_discourse && $post_is_published && $this->is_valid_sync_post_type( $post_id ) && ! empty( $title ) ) {
 			update_post_meta( $post_id, 'publish_to_discourse', 1 );
@@ -182,14 +185,16 @@ class DiscoursePublish {
 
 		// Get publish category of a post.
 		$publish_post_category = get_post_meta( $post_id, 'publish_post_category', true );
-		// This would be used if a post is published through XML-RPC. I'm not sure what it should default to if it hasn't been set.
+		// This would be used if a post is published through XML-RPC.
 		$default_category = isset( $options['publish-category'] ) ? $options['publish-category'] : '';
 		$category         = isset( $publish_post_category ) ? $publish_post_category : $default_category;
+		$tags             = get_post_meta( $post_id, 'wpdc_topic_tags', true );
+		$tags_param       = $this->tags_param( $tags );
 
 		// The post hasn't been published to Discourse yet.
 		if ( ! $discourse_id > 0 ) {
-			$unlisted = get_post_meta( $post_id, 'wpdc_unlisted_topic', true );
-			$data     = array(
+			$unlisted     = get_post_meta( $post_id, 'wpdc_unlisted_topic', true );
+			$data         = array(
 				'embed_url'        => $permalink,
 				'featured_link'    => $add_featured_link ? $permalink : null,
 				'api_key'          => $options['api-key'],
@@ -201,12 +206,11 @@ class DiscoursePublish {
 				'auto_track'       => ( ! empty( $options['auto-track'] ) ? 'true' : 'false' ),
 				'visible'          => ! empty( $unlisted ) ? 'false' : 'true',
 			);
-			$url      = $options['url'] . '/posts';
-			// Use key 'http' even if you send the request to https://.
+			$url          = $options['url'] . '/posts';
 			$post_options = array(
 				'timeout' => 30,
 				'method'  => 'POST',
-				'body'    => http_build_query( $data ),
+				'body'    => http_build_query( $data ) . $tags_param,
 			);
 
 		} else {
@@ -237,7 +241,7 @@ class DiscoursePublish {
 				$error_code    = intval( wp_remote_retrieve_response_code( $result ) );
 				if ( 500 === $error_code ) {
 					// For older versions of Discourse, publishing to a deleted topic is returning a 500 response code.
-					update_post_meta( $post_id, 'wpdc_deleted_topic', 1 );
+					update_post_meta( $post_id, 'wpdc_publishing_error', 'deleted_topic' );
 				}
 			}
 
@@ -247,42 +251,42 @@ class DiscoursePublish {
 		}
 
 		$body = json_decode( wp_remote_retrieve_body( $result ) );
+		// Check for queued posts. We have already determined that a status code of `200` was returned. A post queued by Discourse will have an empty body.
+		if ( empty( $body ) ) {
+			update_post_meta( $post_id, 'wpdc_publishing_error', 'queued_topic' );
+
+			return new \WP_Error( 'discourse_publishing_response_error', 'The published post has been added to the Discourse approval queue.' );
+		}
 
 		// The response when a topic is first created.
-		if ( property_exists( $body, 'id' ) ) {
-			$discourse_id = (int) $body->id;
-
-			if ( ! empty( $discourse_id ) && ! empty( $body->topic_slug ) && ! empty( $body->topic_id ) ) {
+		if ( ! empty( $body->id ) && ! empty( $body->topic_slug ) && ! empty( $body->topic_id ) ) {
+			$discourse_id   = (int) $body->id;
 				$topic_slug = $body->topic_slug;
 				$topic_id   = $body->topic_id;
 
-				delete_post_meta( $post_id, 'wpdc_deleted_topic' );
+				delete_post_meta( $post_id, 'wpdc_publishing_error' );
 				add_post_meta( $post_id, 'discourse_post_id', $discourse_id, true );
 				add_post_meta( $post_id, 'discourse_topic_id', $topic_id, true );
 				add_post_meta( $post_id, 'discourse_permalink', $options['url'] . '/t/' . $topic_slug . '/' . $topic_id, true );
 
 				// Used for resetting the error notification, if one was being displayed.
 				update_post_meta( $post_id, 'wpdc_publishing_response', 'success' );
-				if ( $use_multisite_configuration ) {
-					$blog_id = get_current_blog_id();
-					$this->save_topic_blog_id( $body->topic_id, $blog_id );
-				}
+			if ( $use_multisite_configuration ) {
+				$blog_id = get_current_blog_id();
+				$this->save_topic_blog_id( $body->topic_id, $blog_id );
+			}
 
 				$pin_until = get_post_meta( $post_id, 'wpdc_pin_until', true );
-				if ( ! empty( $pin_until ) ) {
-					$pin_response = $this->pin_discourse_topic( $post_id, $topic_id, $pin_until );
+			if ( ! empty( $pin_until ) ) {
+				$pin_response = $this->pin_discourse_topic( $post_id, $topic_id, $pin_until );
 
-					return $pin_response;
-				}
-
-				// The topic has been created and its associated post's metadata has been updated.
-				return null;
-			} else {
-				$this->create_bad_response_notifications( $current_post, $post_id );
-
-				return new \WP_Error( 'discourse_publishing_response_error', 'An invalid response was returned from Discourse after attempting to publish a post.' );
+				return $pin_response;
 			}
-		} elseif ( property_exists( $body, 'post' ) ) {
+
+			// The topic has been created and its associated post's metadata has been updated.
+			return null;
+
+		} elseif ( ! empty( $body->post ) ) {
 
 			$discourse_post = $body->post;
 			$topic_slug     = ! empty( $discourse_post->topic_slug ) ? $discourse_post->topic_slug : null;
@@ -290,13 +294,13 @@ class DiscoursePublish {
 
 			// Handles deleted topics for recent versions of Discourse.
 			if ( ! empty( $discourse_post->deleted_at ) ) {
-				update_post_meta( $post_id, 'wpdc_deleted_topic', 1 );
+				update_post_meta( $post_id, 'wpdc_publishing_error', 'deleted_topic' );
 
 				return new \WP_Error( 'discourse_publishing_response_error', 'The Discourse topic associated with this post has been deleted.' );
 			}
 
 			if ( $topic_slug && $topic_id ) {
-				delete_post_meta( $post_id, 'wpdc_deleted_topic' );
+				delete_post_meta( $post_id, 'wpdc_publishing_error' );
 				update_post_meta( $post_id, 'discourse_permalink', $options['url'] . '/t/' . $topic_slug . '/' . $topic_id );
 				update_post_meta( $post_id, 'discourse_topic_id', (int) $topic_id );
 				update_post_meta( $post_id, 'wpdc_publishing_response', 'success' );
@@ -322,6 +326,25 @@ class DiscoursePublish {
 		$this->create_bad_response_notifications( $current_post, $post_id );
 
 		return new \WP_Error( 'discourse_publishing_response_error', 'An invalid response was returned from Discourse after attempting to publish a post.' );
+	}
+
+	/**
+	 * Generates the tags parameter in the form that is required by Discourse.
+	 *
+	 * @param array $tags The array of tags for the topic.
+	 *
+	 * @return string
+	 */
+	protected function tags_param( $tags ) {
+		$tags_string = '';
+		if ( ! empty( $tags ) ) {
+			foreach ( $tags as $tag ) {
+				$tag          = trim( $tag );
+				$tags_string .= '&tags' . rawurlencode( '[]' ) . "={$tag}";
+			}
+		}
+
+		return $tags_string;
 	}
 
 	/**

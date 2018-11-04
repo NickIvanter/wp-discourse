@@ -32,17 +32,14 @@ class HTMLTemplates {
 	}
 
 	/**
-	 * Sets the target attribute.
+	 * Sets the value of the target attribute.
 	 *
 	 * @return string
 	 */
-	protected static function target() {
+	protected static function new_tab() {
 		$comment_options = get_option( 'discourse_comment' );
-		if ( ! empty( $comment_options['discourse-new-tab'] ) ) {
-			return 'target="_blank"';
-		}
 
-		return '';
+		return ! empty( $comment_options['discourse-new-tab'] );
 	}
 
 	/**
@@ -56,7 +53,7 @@ class HTMLTemplates {
 	 *
 	 * @static
 	 *
-	 * @return mixed|void
+	 * @return string
 	 */
 	public static function replies_html() {
 		ob_start();
@@ -67,16 +64,14 @@ class HTMLTemplates {
 			<div class="respond comment-respond">
 				<h3 id="reply-title" class="comment-reply-title">
 					<?php echo esc_html( self::get_text_options( 'continue-discussion-text' ) . ' ' ); ?>
-					<a <?php self::target(); ?> href="{topic_url}">
-						{discourse_url_name}
-					</a>
+					<?php self::discourse_topic_link( self::new_tab() ); ?>
 				</h3>
 				<p class="more-replies">{more_replies}</p>
 				<div class="comment-reply-title">
 					<h4 class="discourse-participants"><?php echo esc_html( self::get_text_options( 'participants-text' ) ); ?></h4>
 					<p>{participants}</p>
 				</div>
-			</div><!-- #respond -->
+			</div>
 		</div>
 		<?php
 		$output = ob_get_clean();
@@ -91,10 +86,10 @@ class HTMLTemplates {
 	 *
 	 * Available tags:
 	 * {comments}, {discourse_url}, {discourse_url_name}, {topic_url}
-     *
+	 *
 	 * @param null/string $discourse_comments_number The number of comments that are displayed on Discourse.
 	 * @static
-	 * @return mixed|void
+	 * @return string
 	 */
 	public static function no_replies_html( $discourse_comments_number = null ) {
 		ob_start();
@@ -103,13 +98,12 @@ class HTMLTemplates {
 			<div class="respond comment-respond">
 				<h3 id="reply-title" class="comment-reply-title">
 					<?php
-					$text = $discourse_comments_number > 0 ? self::get_text_options( 'join-discussion-text' ) : self::get_text_options( 'start-discussion-text' );
+					$text = $discourse_comments_number > 1 ? self::get_text_options( 'join-discussion-text' ) : self::get_text_options( 'start-discussion-text' );
 					?>
 					<?php echo esc_html( $text ) . ' '; ?>
-					<a <?php self::target(); ?> href="{topic_url}">
-						{discourse_url_name}
-					</a></h3>
-			</div><!-- #respond -->
+					<?php self::discourse_topic_link( self::new_tab() ); ?>
+					</h3>
+			</div>
 		</div>
 		<?php
 		$output = ob_get_clean();
@@ -125,7 +119,7 @@ class HTMLTemplates {
 	 *
 	 * Can be customized in the theme using the filter provided.
 	 *
-	 * @return mixed|void
+	 * @return string
 	 */
 	public static function bad_response_html() {
 		ob_start();
@@ -151,13 +145,14 @@ class HTMLTemplates {
 	 * {avatar_url}, {user_url}, {username}, {fullname},
 	 * {comment_body}, {comment_created_at}, {comment_url}
 	 *
+	 * @param bool $even Whether it's an even comment number.
 	 * @static
-	 * @return mixed|void
+	 * @return string
 	 */
-	public static function comment_html() {
+	public static function comment_html( $even = true ) {
 		ob_start();
 		?>
-		<li class="comment even thread-even depth-1">
+		<li class="comment <?php echo $even ? 'even' : 'odd'; ?> depth-1">
 			<article class="comment-body">
 				<footer class="comment-meta">
 					<div class="comment-author vcard">
@@ -168,17 +163,12 @@ class HTMLTemplates {
 										 class="url">{username}</a></b>
 						<span class="says screen-reader-text"><?php echo esc_html( 'says:', 'wp-discourse' ); ?></span><!-- screen reader text -->
 					</div>
-					<!-- .comment-author -->
 					<div class="comment-metadata">
-						<time pubdate="" datetime="{comment_created_at}">{comment_created_at}</time>
+						<time datetime="{comment_created_at}">{comment_created_at}</time>
 					</div>
-					<!-- .comment-metadata -->
 				</footer>
-				<!-- .comment-meta -->
 				<div class="comment-content">{comment_body}</div>
-				<!-- .comment-content -->
 			</article>
-			<!-- .comment-body -->
 		</li>
 		<?php
 		$output = ob_get_clean();
@@ -196,7 +186,7 @@ class HTMLTemplates {
 	 * {avatar_url}, {user_url}, {username}
 	 *
 	 * @static
-	 * @return mixed|void
+	 * @return string
 	 */
 	public static function participant_html() {
 		ob_start();
@@ -218,7 +208,7 @@ class HTMLTemplates {
 	 * {excerpt}, {blogurl}, {author}, {thumbnail}, {featuredimage}
 	 *
 	 * @static
-	 * @return mixed|void
+	 * @return string
 	 */
 	public static function publish_format_html() {
 		ob_start();
@@ -230,5 +220,26 @@ class HTMLTemplates {
 		$output = ob_get_clean();
 
 		return apply_filters( 'discourse_publish_format_html', $output );
+	}
+
+	/**
+	 * HTML template for the link to the Discourse topic.
+	 *
+	 * Available tags:
+	 * {topic_url}, {discourse_url_name}
+	 *
+	 * @param bool $new_tab Whether or not to open the link in a new tab.
+	 * @static
+	 */
+	public static function discourse_topic_link( $new_tab ) {
+		if ( $new_tab ) {
+			?>
+			<a class="wpdc-discourse-topic-link" target="_blank" href="{topic_url}">{discourse_url_name}</a>
+			<?php
+		} else {
+			?>
+			<a class="wpdc-discourse-topic-link" href="{topic_url}">{discourse_url_name}</a>
+			<?php
+		}
 	}
 }

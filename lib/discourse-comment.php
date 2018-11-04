@@ -163,7 +163,7 @@ class DiscourseComment {
 	 * @return bool|int
 	 */
 	protected function use_discourse_comments( $post_id ) {
-		if ( empty( $this->options['use-discourse-comments'] ) ) {
+		if ( empty( $this->options['enable-discourse-comments'] ) || 'display-comments' !== $this->options['comment-type'] ) {
 
 			return 0;
 		}
@@ -181,7 +181,7 @@ class DiscourseComment {
 	 * @return bool|int
 	 */
 	protected function add_join_link( $post_id ) {
-		if ( empty( $this->options['add-join-link'] ) ) {
+		if ( empty( $this->options['enable-discourse-comments'] ) || 'display-comments-link' !== $this->options['comment-type'] ) {
 
 			return 0;
 		}
@@ -219,7 +219,8 @@ class DiscourseComment {
 			wp_cache_set( 'discourse_comments_lock', $wpdb->get_row( "SELECT GET_LOCK( 'discourse_lock', 0 ) got_it" ) );
 			if ( 1 === intval( wp_cache_get( 'discourse_comments_lock' )->got_it ) ) {
 
-				if ( 'publish' === get_post_status( $postid ) ) {
+				$publish_private = apply_filters( 'wpdc_publish_private_post', false, $postid );
+				if ( 'publish' === get_post_status( $postid ) || $publish_private ) {
 
 					$comment_count            = $this->add_join_link( $postid ) ? 0 : intval( $discourse_options['max-comments'] );
 					$min_trust_level          = intval( $discourse_options['min-trust-level'] );
@@ -236,6 +237,7 @@ class DiscourseComment {
 					$options = $options . '&api_key=' . $discourse_options['api-key'] . '&api_username=' . $discourse_options['publish-username'];
 
 					$discourse_permalink = get_post_meta( $postid, 'discourse_permalink', true );
+					$topic_id            = get_post_meta( $postid, 'discourse_topic_id', true );
 					if ( ! $discourse_permalink ) {
 
 						return 0;
@@ -257,6 +259,10 @@ class DiscourseComment {
 
 							update_post_meta( $postid, 'discourse_comments_count', $posts_count );
 							update_post_meta( $postid, 'discourse_comments_raw', esc_sql( $result['body'] ) );
+							if ( isset( $topic_id ) ) {
+								// Delete the cached html.
+								delete_transient( "wpdc_comment_html_{$topic_id}" );
+							}
 						}
 					}
 
@@ -312,10 +318,15 @@ class DiscourseComment {
 			return WPDISCOURSE_PATH . 'templates/blank.php';
 		}
 
+		// Don't display the WordPress comments template for posts not published to Discourse if comments have been enabled sitewide.
+		if ( ! empty( $this->options['hide-wordpress-comments'] ) ) {
+
+			return WPDISCOURSE_PATH . 'templates/blank.php';
+		}
+
 		// Discourse comments are not being used. Return the default comments tempate.
 		return $old;
 	}
-
 
 	/**
 	 * Displays a link to the associated Discourse topic.

@@ -18,7 +18,8 @@
 #setting-error-login_path ~ form #discourse-login-path,
 #setting-error-sso_secret ~ form #discourse-sso-secret,
 #setting-error-webhook_secret ~ form #discourse-webhook-secret,
-#setting-error-add_join_link ~ form #discourse-add-join-link {
+#setting-error-add_join_link ~ form #discourse-add-join-link,
+#setting-error-sso_client_login_redirect ~ form #discourse-sso-client-login-form-redirect {
 	border-color: #dc3232;
 	border-width: 1px;
 }
@@ -79,6 +80,14 @@ ul.wpdc-documentation-list {
 	margin-left: 40px;
 }
 
+/* Make it easier to copy sections. */
+code.wpdc-select-all {
+	-webkit-user-select: all;
+	-moz-user-select: all;
+	-ms-user-select: all;
+	user-select: all;
+}
+
 #discourse-publish-meta-box label {
 	display: inline-block;
 	padding: 6px 10px 8px 0;
@@ -89,7 +98,7 @@ ul.wpdc-documentation-list {
 }
 
 .wpdc-new-discourse-topic.hidden,
-.wpdc-link-to-top.hidden {
+.wpdc-link-to-topic.hidden {
 	display: none;
 }
 
@@ -126,11 +135,73 @@ ul.wpdc-documentation-list {
 	color: #444444;
 }
 
-/* Make it easier to copy sections. */
+.wpdc-pin-topic-time.hidden {
+	display: none;
+}
 
-code.wpdc-select-all {
-	-webkit-user-select: all;
-	-moz-user-select: all;
-	-ms-user-select: all;
-	user-select: all;
+#wpdc-tagchecklist {
+	padding-left: 14px;
+}
+
+#wpdc-tagchecklist:after {
+	content: "";
+	display: table;
+	clear: both;
+}
+
+#wpdc-tagchecklist>li {
+	float: left;
+	margin-right: 25px;
+	font-size: 13px;
+	line-height: 1.8em;
+	max-width: 100%;
+	text-overflow: ellipsis;
+}
+
+button.wpdc-remove-tag {
+	position: absolute;
+	width: 24px;
+	height: 24px;
+	border: none;
+	margin: 0 0 0 -19px;
+	padding: 0;
+	background: 0 0;
+	cursor: pointer;
+	text-indent: 0;
+}
+
+.wpdc-remove-tag-icon:before {
+	margin-left: 2px;
+	border-radius: 50%;
+	color: #0073aa;
+	content: "\f153";
+	display: block;
+	font: 400 16px/20px dashicons;
+	speak: none;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+button.wpdc-remove-tag:hover .wpdc-remove-tag-icon:before {
+	color: #c00c00;
+}
+
+.wpdc-info-icon:before {
+	margin-left: 2px;
+	content: "?";
+	font-size: 18px;
+	font-weight: bold;
+	color: #444444;
+	position: absolute;
+	bottom: 0;
+}
+
+.wpdc-publish-info {
+	font-style: italic;
+	color: #666666;
+}
+
+/* Padding for the Commenting options comment-type radio input. */
+.discourse-comment-type {
+	padding-left: 23px;
 }
